@@ -53,7 +53,20 @@ func Load() (*Config, error) {
 
 	var records []Record
 	if err := json.Unmarshal([]byte(recordsJSON), &records); err != nil {
-		return nil, fmt.Errorf("failed to parse BUNNY_RECORDS_JSON: %w", err)
+		unescaped := ""
+		if candidate, unescapeErr := strconv.Unquote(recordsJSON); unescapeErr == nil {
+			unescaped = candidate
+		} else if candidate, wrapErr := strconv.Unquote("\"" + recordsJSON + "\""); wrapErr == nil {
+			unescaped = candidate
+		}
+
+		if unescaped == "" {
+			return nil, fmt.Errorf("failed to parse BUNNY_RECORDS_JSON: %w", err)
+		}
+
+		if retryErr := json.Unmarshal([]byte(unescaped), &records); retryErr != nil {
+			return nil, fmt.Errorf("failed to parse BUNNY_RECORDS_JSON: %w", retryErr)
+		}
 	}
 
 	if len(records) == 0 {
