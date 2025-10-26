@@ -8,6 +8,8 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"strconv"
+	"strings"
 	"time"
 
 	"github.com/trevorspencer/bunny-dynamic-dns/internal/config"
@@ -56,16 +58,9 @@ func (r *DNSRecord) UnmarshalJSON(data []byte) error {
 		return err
 	}
 
-	recordType := ""
-	if len(raw.Type) != 0 {
-		if err := json.Unmarshal(raw.Type, &recordType); err != nil {
-			var number json.Number
-			if numErr := json.Unmarshal(raw.Type, &number); numErr != nil {
-				return fmt.Errorf("dns record type: %w", err)
-			}
-
-			recordType = number.String()
-		}
+	recordType, err := normalizeRecordType(raw.Type)
+	if err != nil {
+		return err
 	}
 
 	r.ID = raw.ID
@@ -76,6 +71,41 @@ func (r *DNSRecord) UnmarshalJSON(data []byte) error {
 	r.Priority = raw.Priority
 
 	return nil
+}
+
+func normalizeRecordType(raw json.RawMessage) (string, error) {
+	if len(raw) == 0 {
+		return "", nil
+	}
+
+	var typeString string
+	if err := json.Unmarshal(raw, &typeString); err == nil {
+		return strings.ToUpper(strings.TrimSpace(typeString)), nil
+	}
+
+	var number json.Number
+	if err := json.Unmarshal(raw, &number); err != nil {
+		return "", fmt.Errorf("dns record type: %w", err)
+	}
+
+	code, err := strconv.Atoi(number.String())
+	if err != nil {
+		return number.String(), nil
+	}
+
+	if mapped, ok := bunnyRecordTypeMap[code]; ok {
+		return mapped, nil
+	}
+
+	return number.String(), nil
+}
+
+var bunnyRecordTypeMap = map[int]string{
+	0: "A",
+	1: "AAAA",
+	2: "CNAME",
+	3: "TXT",
+	4: "MX",
 }
 
 // NewClient builds a Client with sane defaults.

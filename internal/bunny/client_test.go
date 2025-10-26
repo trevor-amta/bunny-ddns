@@ -13,7 +13,7 @@ func TestDNSRecordUnmarshalNumericType(t *testing.T) {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
-	if got, want := record.Type, "1"; got != want {
+	if got, want := record.Type, "AAAA"; got != want {
 		t.Fatalf("Type mismatch: got %q want %q", got, want)
 	}
 }
@@ -31,3 +31,28 @@ func TestDNSRecordUnmarshalStringType(t *testing.T) {
 	}
 }
 
+func TestDNSRecordUnmarshalNumericTypeFallback(t *testing.T) {
+	payload := []byte(`{"Id":111,"Name":"","Type":99,"Value":"127.0.0.1","Ttl":60,"Priority":0}`)
+
+	var record DNSRecord
+	if err := json.Unmarshal(payload, &record); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if got, want := record.Type, "99"; got != want {
+		t.Fatalf("Type mismatch: got %q want %q", got, want)
+	}
+}
+
+func TestDNSRecordUnmarshalStringNormalization(t *testing.T) {
+	payload := []byte(`{"Id":111,"Name":"","Type":"a","Value":"127.0.0.1","Ttl":60,"Priority":0}`)
+
+	var record DNSRecord
+	if err := json.Unmarshal(payload, &record); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if got, want := record.Type, "A"; got != want {
+		t.Fatalf("Type mismatch: got %q want %q", got, want)
+	}
+}
