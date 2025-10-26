@@ -40,6 +40,44 @@ type DNSRecord struct {
 	Priority int    `json:"Priority"`
 }
 
+// UnmarshalJSON normalizes the Type field, which may arrive as a string or number.
+func (r *DNSRecord) UnmarshalJSON(data []byte) error {
+	type rawRecord struct {
+		ID       int             `json:"Id"`
+		Name     string          `json:"Name"`
+		Type     json.RawMessage `json:"Type"`
+		Value    string          `json:"Value"`
+		TTL      int             `json:"Ttl"`
+		Priority int             `json:"Priority"`
+	}
+
+	var raw rawRecord
+	if err := json.Unmarshal(data, &raw); err != nil {
+		return err
+	}
+
+	recordType := ""
+	if len(raw.Type) != 0 {
+		if err := json.Unmarshal(raw.Type, &recordType); err != nil {
+			var number json.Number
+			if numErr := json.Unmarshal(raw.Type, &number); numErr != nil {
+				return fmt.Errorf("dns record type: %w", err)
+			}
+
+			recordType = number.String()
+		}
+	}
+
+	r.ID = raw.ID
+	r.Name = raw.Name
+	r.Type = recordType
+	r.Value = raw.Value
+	r.TTL = raw.TTL
+	r.Priority = raw.Priority
+
+	return nil
+}
+
 // NewClient builds a Client with sane defaults.
 func NewClient(zoneID, apiKey, userAgent string) *Client {
 	transport := http.DefaultTransport.(*http.Transport).Clone()
@@ -69,6 +107,7 @@ func (c *Client) GetRecord(ctx context.Context, recordID int) (*DNSRecord, error
 	}
 
 	req.Header.Set("AccessKey", c.apiKey)
+	req.Header.Set("Accept", "application/json")
 	if c.userAgent != "" {
 		req.Header.Set("User-Agent", c.userAgent)
 	}
@@ -115,6 +154,7 @@ func (c *Client) getRecordByListing(ctx context.Context, recordID int) (*DNSReco
 	}
 
 	req.Header.Set("AccessKey", c.apiKey)
+	req.Header.Set("Accept", "application/json")
 	if c.userAgent != "" {
 		req.Header.Set("User-Agent", c.userAgent)
 	}
@@ -171,6 +211,7 @@ func (c *Client) getRecordFromZone(ctx context.Context, recordID int) (*DNSRecor
 	}
 
 	req.Header.Set("AccessKey", c.apiKey)
+	req.Header.Set("Accept", "application/json")
 	if c.userAgent != "" {
 		req.Header.Set("User-Agent", c.userAgent)
 	}
@@ -240,6 +281,7 @@ func (c *Client) UpdateRecord(ctx context.Context, record config.Record, ip stri
 	}
 
 	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Accept", "application/json")
 	req.Header.Set("AccessKey", c.apiKey)
 	if c.userAgent != "" {
 		req.Header.Set("User-Agent", c.userAgent)
