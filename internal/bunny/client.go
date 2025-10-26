@@ -129,6 +129,9 @@ func (c *Client) getRecordByListing(ctx context.Context, recordID int) (*DNSReco
 	case http.StatusOK:
 	case http.StatusNotFound:
 		return nil, ErrNotFound
+	case http.StatusMethodNotAllowed:
+		_, _ = io.Copy(io.Discard, resp.Body)
+		return c.getRecordFromZone(ctx, recordID)
 	default:
 		body, readErr := io.ReadAll(io.LimitReader(resp.Body, 512))
 		if readErr != nil {
@@ -149,6 +152,55 @@ func (c *Client) getRecordByListing(ctx context.Context, recordID int) (*DNSReco
 	for i := range payload.Items {
 		if payload.Items[i].ID == recordID {
 			record := payload.Items[i]
+			return &record, nil
+		}
+	}
+
+	return nil, ErrNotFound
+}
+
+func (c *Client) getRecordFromZone(ctx context.Context, recordID int) (*DNSRecord, error) {
+	req, err := http.NewRequestWithContext(
+		ctx,
+		http.MethodGet,
+		fmt.Sprintf("%s/dnszone/%s", apiBaseURL, c.zoneID),
+		nil,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("build request: %w", err)
+	}
+
+	req.Header.Set("AccessKey", c.apiKey)
+	if c.userAgent != "" {
+		req.Header.Set("User-Agent", c.userAgent)
+	}
+
+	resp, err := c.client.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("request failed: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		body, readErr := io.ReadAll(io.LimitReader(resp.Body, 512))
+		if readErr != nil {
+			return nil, fmt.Errorf("bunny api error status %d", resp.StatusCode)
+		}
+
+		return nil, fmt.Errorf("bunny api error status %d: %s", resp.StatusCode, string(body))
+	}
+
+	var payload struct {
+		Records []DNSRecord `json:"Records"`
+	}
+
+	if err := json.NewDecoder(resp.Body).Decode(&payload); err != nil {
+		return nil, fmt.Errorf("decode response: %w", err)
+	}
+
+	for i := range payload.Records {
+		if payload.Records[i].ID == recordID {
+			record := payload.Records[i]
 			return &record, nil
 		}
 	}
