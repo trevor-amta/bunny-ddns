@@ -1,8 +1,8 @@
-# Bunny Dynamic DNS Updater (v0.1.1)
+# Bunny Dynamic DNS Updater (v0.1.2)
 
 A tiny Go service that keeps one or more Bunny.net DNS records in sync with the latest public IP address.
 
-## Features (v0.1.1)
+## Features (v0.1.2)
 - Polls multiple WAN IP endpoints on a configurable interval
 - Verifies the live Bunny DNS record value before updating, so restarts avoid redundant writes
 - Fails fast if a configured record ID is missing from the Bunny zone
