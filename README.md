@@ -1,8 +1,8 @@
-# Bunny Dynamic DNS Updater (v0.1.2)
+# Bunny Dynamic DNS Updater (v0.1.3)
 
 A tiny Go service that keeps one or more Bunny.net DNS records in sync with the latest public IP address.
 
-## Features (v0.1.2)
+## Features (v0.1.3)
 - Polls multiple WAN IP endpoints on a configurable interval
 - Verifies the live Bunny DNS record value before updating, so restarts avoid redundant writes
 - Fails fast if a configured record ID is missing from the Bunny zone
@@ -23,7 +23,7 @@ All settings are supplied via environment variables:
 
 - `BUNNY_API_KEY` – Bunny API access key with permission to edit DNS records
 - `BUNNY_ZONE_ID` – Target DNS zone identifier
-- `BUNNY_RECORDS_JSON` – JSON array describing the records to update (e.g., `[{"id":123,"name":"home","type":"A"}]`). The loader now tolerates escaped JSON strings such as `[{\"id\":123}]`, which some platforms (like Coolify) inject. Use an empty string (`""`) for the `name` field to target the zone apex (root record).
+- `BUNNY_RECORDS_JSON` – JSON array describing the records to update (e.g., `[{"id":123,"name":"home","type":"A"}]`). The loader now tolerates escaped JSON strings such as `[{\"id\":123}]`, which some platforms (like Coolify) inject. Use an empty string (`""`) for the `name` field to target the zone apex (root record); the Bunny client falls back to listing records when the per-record endpoint is unavailable (HTTP 405).
 - `POLL_INTERVAL_SECONDS` – Seconds between WAN IP checks (default 120)
 - `WAN_IP_ENDPOINTS` – Comma-separated list of HTTPS endpoints used to detect the WAN IP (defaults to api.ipify.org, ipv4.icanhazip.com)
 - `USER_AGENT` – Custom user agent string for outbound HTTP requests

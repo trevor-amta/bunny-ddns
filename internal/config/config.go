@@ -12,7 +12,7 @@ import (
 
 const (
 	defaultPollInterval = 120 * time.Second
-	defaultUserAgent    = "bunny-ddns/0.1.2"
+	defaultUserAgent    = "bunny-ddns/0.1.3"
 )
 
 // Record describes a Bunny DNS record to be updated when the WAN IP changes.
