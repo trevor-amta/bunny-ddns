@@ -1,0 +1,5 @@
+services:
+  bunny-ddns:
+    build: .
+    restart: unless-stopped
+    env_file: .env
