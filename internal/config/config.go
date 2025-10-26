@@ -73,14 +73,25 @@ func Load() (*Config, error) {
 		return nil, errors.New("BUNNY_RECORDS_JSON must contain at least one record")
 	}
 
-	for i, record := range records {
+	for i := range records {
+		record := &records[i]
+
 		if record.ID <= 0 {
 			return nil, fmt.Errorf("record at index %d must have a positive id", i)
 		}
-		if strings.TrimSpace(record.Name) == "" {
+
+		name := strings.TrimSpace(record.Name)
+		switch {
+		case name != "":
+			record.Name = name
+		case record.Name == "":
+			// Empty name denotes the zone apex (root); leave as-is.
+		default:
 			return nil, fmt.Errorf("record at index %d must include name", i)
 		}
-		if strings.TrimSpace(record.Type) == "" {
+
+		record.Type = strings.TrimSpace(record.Type)
+		if record.Type == "" {
 			return nil, fmt.Errorf("record at index %d must include type", i)
 		}
 	}

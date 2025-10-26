@@ -23,7 +23,7 @@ All settings are supplied via environment variables:
 
 - `BUNNY_API_KEY` – Bunny API access key with permission to edit DNS records
 - `BUNNY_ZONE_ID` – Target DNS zone identifier
-- `BUNNY_RECORDS_JSON` – JSON array describing the records to update (e.g., `[{"id":123,"name":"home","type":"A"}]`). The loader now tolerates escaped JSON strings such as `[{\"id\":123}]`, which some platforms (like Coolify) inject.
+- `BUNNY_RECORDS_JSON` – JSON array describing the records to update (e.g., `[{"id":123,"name":"home","type":"A"}]`). The loader now tolerates escaped JSON strings such as `[{\"id\":123}]`, which some platforms (like Coolify) inject. Use an empty string (`""`) for the `name` field to target the zone apex (root record).
 - `POLL_INTERVAL_SECONDS` – Seconds between WAN IP checks (default 120)
 - `WAN_IP_ENDPOINTS` – Comma-separated list of HTTPS endpoints used to detect the WAN IP (defaults to api.ipify.org, ipv4.icanhazip.com)
 - `USER_AGENT` – Custom user agent string for outbound HTTP requests
