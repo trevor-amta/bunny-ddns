@@ -300,14 +300,69 @@ func (c *Client) UpdateRecord(ctx context.Context, record config.Record, ip stri
 		return fmt.Errorf("marshal payload: %w", err)
 	}
 
+	methods := []string{
+		http.MethodPut,
+		http.MethodPost,
+		http.MethodPatch,
+	}
+
+	var (
+		lastStatus int
+		lastBody   []byte
+		lastHeader http.Header
+	)
+
+	for _, method := range methods {
+		status, bodyBytes, header, reqErr := c.updateRecordWithMethod(ctx, method, record, payload)
+		if reqErr != nil {
+			return reqErr
+		}
+
+		if status >= 200 && status < 300 {
+			return nil
+		}
+
+		lastStatus = status
+		lastBody = bodyBytes
+		lastHeader = header
+
+		if status == http.StatusMethodNotAllowed {
+			continue
+		}
+
+		return formatAPIError(status, bodyBytes)
+	}
+
+	if lastStatus == http.StatusMethodNotAllowed {
+		message := strings.TrimSpace(string(lastBody))
+		if message == "" && lastHeader != nil {
+			if allow := lastHeader.Get("Allow"); allow != "" {
+				message = fmt.Sprintf("allowed methods: %s", allow)
+			}
+		}
+		if message == "" {
+			message = "method not allowed"
+		}
+		return fmt.Errorf("bunny api error status 405: %s", message)
+	}
+
+	return formatAPIError(lastStatus, lastBody)
+}
+
+func (c *Client) updateRecordWithMethod(
+	ctx context.Context,
+	method string,
+	record config.Record,
+	payload []byte,
+) (int, []byte, http.Header, error) {
 	req, err := http.NewRequestWithContext(
 		ctx,
-		http.MethodPut,
+		method,
 		fmt.Sprintf("%s/dnszone/%s/records/%d", apiBaseURL, c.zoneID, record.ID),
 		bytes.NewReader(payload),
 	)
 	if err != nil {
-		return fmt.Errorf("build request: %w", err)
+		return 0, nil, nil, fmt.Errorf("build request: %w", err)
 	}
 
 	req.Header.Set("Content-Type", "application/json")
@@ -319,23 +374,32 @@ func (c *Client) UpdateRecord(ctx context.Context, record config.Record, ip stri
 
 	resp, err := c.client.Do(req)
 	if err != nil {
-		return fmt.Errorf("request failed: %w", err)
+		return 0, nil, nil, fmt.Errorf("request failed: %w", err)
 	}
 	defer resp.Body.Close()
 
-	if resp.StatusCode >= 200 && resp.StatusCode < 300 {
-		return nil
+	bodyBytes, readErr := io.ReadAll(io.LimitReader(resp.Body, 512))
+	header := resp.Header.Clone()
+
+	if readErr != nil {
+		if resp.StatusCode >= 200 && resp.StatusCode < 300 {
+			return resp.StatusCode, nil, header, nil
+		}
+		return resp.StatusCode, nil, header, fmt.Errorf("read response: %w", readErr)
 	}
 
-	bodyBytes, readErr := io.ReadAll(io.LimitReader(resp.Body, 512))
-	if readErr != nil {
-		return fmt.Errorf("bunny api error status %d", resp.StatusCode)
+	return resp.StatusCode, bodyBytes, header, nil
+}
+
+func formatAPIError(status int, body []byte) error {
+	if len(body) == 0 {
+		return fmt.Errorf("bunny api error status %d", status)
 	}
 
 	var detail map[string]any
-	if err := json.Unmarshal(bodyBytes, &detail); err == nil && len(detail) > 0 {
-		return fmt.Errorf("bunny api error status %d: %v", resp.StatusCode, detail)
+	if err := json.Unmarshal(body, &detail); err == nil && len(detail) > 0 {
+		return fmt.Errorf("bunny api error status %d: %v", status, detail)
 	}
 
-	return fmt.Errorf("bunny api error status %d: %s", resp.StatusCode, string(bodyBytes))
+	return fmt.Errorf("bunny api error status %d: %s", status, strings.TrimSpace(string(body)))
 }
